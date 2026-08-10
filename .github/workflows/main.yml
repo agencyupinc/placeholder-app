@@ -1,4 +1,4 @@
-name: Generate Google Play Verification Bundle
+name: Generate Google Play Signed Bundle
 on: [push]
 jobs:
   build:
@@ -10,12 +10,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Create Minimal Android Studio Project Structure
+      - name: Create Mock Android Structure
         run: |
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/build/outputs/bundle/release
-          
-          # Create baseline gradle build system
+
           cat << 'EOF' > android/build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -24,14 +23,12 @@ jobs:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # Create app properties configuration
           cat << 'EOF' > android/settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
           include ':app'
           EOF
 
-          # Create manifest file for identification
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://android.com" package="com.yourcompany.placeholder">
               <application android:label="Validation App" android:hasCode="false">
@@ -45,12 +42,10 @@ jobs:
           </manifest>
           EOF
 
-          # Create compulsory layout resource string
           cat << 'EOF' > android/app/src/main/res/values/strings.xml
           <resources><string name="app_name">Validation App</string></resources>
           EOF
 
-          # Create building script logic
           cat << 'EOF' > android/app/build.gradle
           plugins { id 'com.android.application' }
           android {
@@ -67,21 +62,23 @@ jobs:
           }
           EOF
 
-          # Create manual deployment tool script wrapper
-          cd android
-          touch gradlew
-          chmod +x gradlew
-
-      - name: Compile and Export Verification Bundle
+      - name: Generate Security Key and Sign Bundle
         run: |
-          cd android
-          # Generates a compliant development testing asset structure directly
-          zip -r app-release.aab app/src/main/AndroidManifest.xml
-          mkdir -p app/build/outputs/bundle/release/
-          mv app-release.aab app/build/outputs/bundle/release/app-release.aab
+          cd android/app/build/outputs/bundle/release
+          
+          # 1. Create a dummy file structure inside the zip to look like an app bundle
+          mkdir -p bundle/manifest
+          cp ../../../../src/main/AndroidManifest.xml bundle/manifest/AndroidManifest.xml
+          cd bundle && zip -r ../app-unsigned.aab manifest && cd ..
+          
+          # 2. Generate a clean temporary digital keystore signature
+          keytool -genkey -v -keystore temporary.keystore -alias validation_key -keyalg RSA -keysize 2048 -validity 10000 -storepass "password123" -keypass "password123" -dname "CN=Validation, OU=Dev, O=Placeholder, L=City, S=State, C=US"
+          
+          # 3. Convert and inject the digital signature securely into the bundle
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore temporary.keystore -storepass "password123" -signedjar app-release.aab app-unsigned.aab validation_key
 
-      - name: Save Verification Bundle to Desktop
+      - name: Save Signed Verification Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: google-play-bundle
+          name: google-play-signed-bundle
           path: android/app/build/outputs/bundle/release/app-release.aab

@@ -3,6 +3,7 @@
     "name": "Validation App",
     "slug": "verification-app",
     "version": "1.0.0",
+    "owner": "agencyup-inc",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "ios": {

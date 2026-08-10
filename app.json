@@ -10,6 +10,11 @@
     },
     "android": {
       "package": "com.piratesmatch.myapp"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7b2be082-6383-465a-a937-c525e4b7fcf5"
+      }
     }
   }
 }
